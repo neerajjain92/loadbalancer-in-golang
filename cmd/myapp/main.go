@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sync"
@@ -38,14 +39,44 @@ func main() {
 	}
 	go healthChecker.Start()
 
-	// Create a new request multiplexer
+	// Initialize the consistentHashRing
+	ring := balancer.NewRing()
+	for _, serverUrl := range config.Servers {
+		ring.AddServer(serverUrl)
+	}
 
+	// Create a new request multiplexer
 	mux := http.NewServeMux()
 
-	serverPool := balancer.NewServerPool(backendServers, config.Weights)
+	serverPool := balancer.NewServerPool(backendServers, config.Weights, ring)
 	// Register the load balancer handler for all paths
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serverPool.LoadBalancer(w, r, "roundrobin")
+		serverPool.LoadBalancer(w, r, "consistentHashing")
+	})
+
+	// Endpoint to add a server
+	mux.HandleFunc("/add-server", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ServerURL string `json:"server_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid Request to add a new server", http.StatusBadRequest)
+			return
+		}
+		serverPool.AddServer(req.ServerURL)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("/remove-server", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			ServerURL string `json:"server_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid Request to remove a server", http.StatusBadRequest)
+			return
+		}
+		serverPool.RemoveServer(req.ServerURL)
+		w.WriteHeader(http.StatusOK)
 	})
 
 	log.Printf("LoadBalancer started at :%s", config.ListentPort)

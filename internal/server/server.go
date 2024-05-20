@@ -27,7 +27,6 @@ func NewServer(serverURL string) *Server {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		// log.Printf("Received HealthCheck on Server %v \n", serverURL)
 		fmt.Fprintf(w, "Server [%s] is healthy !!", url.Host)
-		w.WriteHeader(http.StatusOK)
 	})
 
 	return &Server{

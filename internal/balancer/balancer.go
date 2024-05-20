@@ -17,6 +17,7 @@ import (
 type ServerPool struct {
 	backends []*server.Server
 	current  uint64
+	ring     *Ring
 	mutex    sync.Mutex
 }
 
@@ -38,8 +39,8 @@ func LoadConfig(file string) (Config, error) {
 	return config, err
 }
 
-func NewServerPool(backends []*server.Server, weight []int) *ServerPool {
-	return &ServerPool{backends: backends}
+func NewServerPool(backends []*server.Server, weight []int, ring *Ring) *ServerPool {
+	return &ServerPool{backends: backends, ring: ring}
 }
 
 func (s *ServerPool) NextBackendRoundRobin() *server.Server {
@@ -55,6 +56,14 @@ func (s *ServerPool) LoadBalancer(w http.ResponseWriter, r *http.Request, algori
 	case "roundrobin":
 		backend = s.NextBackendRoundRobin()
 		// ... (other algorithm)
+	case "consistentHashing":
+		serverAddr := s.ring.GetServer(r.RemoteAddr)
+		for _, server := range s.backends {
+			if server.URL.Host == serverAddr {
+				backend = server
+				break
+			}
+		}
 	default:
 		http.Error(w, "Invalid Load Balancing Algorithm", http.StatusBadRequest)
 		return
@@ -68,7 +77,6 @@ func (s *ServerPool) LoadBalancer(w http.ResponseWriter, r *http.Request, algori
 			return
 		}
 
-		// Create a bidirectional copy between the client and the backend server
 		var wg sync.WaitGroup
 		wg.Add(2)
 
@@ -107,6 +115,24 @@ func copyHeader(dst, src http.Header) {
 	for k, vals := range src {
 		for _, val := range vals {
 			dst.Add(k, val)
+		}
+	}
+}
+
+func (s *ServerPool) AddServer(serverURL string) {
+	s.ring.AddServer(serverURL)
+	newServer := server.NewServer(serverURL)
+	s.backends = append(s.backends, newServer)
+	go newServer.Start()
+}
+
+func (s *ServerPool) RemoveServer(serverURL string) {
+	s.ring.RemoveServer(serverURL)
+	for i, backend := range s.backends {
+		if backend.URL.String() == serverURL {
+			backend.Stop()
+			s.backends = append(s.backends[:i], s.backends[i+1:]...)
+			break
 		}
 	}
 }
