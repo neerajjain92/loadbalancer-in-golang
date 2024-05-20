@@ -6,5 +6,6 @@
         "http://localhost:7072"
     ],
     "weights": [5,3,2],
-    "listenPort": "9095"
+    "listenPort": "9095",
+    "routingAlgo": "consistentHashing"
 }

@@ -51,7 +51,7 @@ func main() {
 	serverPool := balancer.NewServerPool(backendServers, config.Weights, ring)
 	// Register the load balancer handler for all paths
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serverPool.LoadBalancer(w, r, "consistentHashing")
+		serverPool.LoadBalancer(w, r, config.RoutingAlgo)
 	})
 
 	// Endpoint to add a server

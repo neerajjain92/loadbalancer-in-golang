@@ -26,6 +26,7 @@ type Config struct {
 	Servers             []string `json:"servers"`
 	Weights             []int    `json:"weights"`
 	ListentPort         string   `json:"listenPort"`
+	RoutingAlgo         string   `json:"routingAlgo"`
 }
 
 func LoadConfig(file string) (Config, error) {
