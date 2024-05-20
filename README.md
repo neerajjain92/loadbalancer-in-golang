@@ -34,13 +34,14 @@ Hello from server localhost:7070!
 curl localhost:9095/health
 ```
 
-- Now for testing consistent hashing there are endpoint exposed to add or remove servers while loadBalancer is running
+## ConsistentHashing
 
+### Remove Server on the fly [Notice how only a handful of request routed to new server rest all remain there, basic concept of consistent hashing]
 ```
 curl -X POST -H "Content-Type: application/json" -d '{"server_url":"http://localhost:7070"}' http://localhost:9095/remove-server
 ```
 
-And to add new server
+### Add Server on the fly
 ```
 curl -X POST -H "Content-Type: application/json" -d '{"server_url":"http://localhost:7070"}' http://localhost:9095/add-server
 ```
