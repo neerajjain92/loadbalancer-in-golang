@@ -38,14 +38,18 @@ func main() {
 	}
 	go healthChecker.Start()
 
+	// Create a new request multiplexer
+
+	mux := http.NewServeMux()
+
 	serverPool := balancer.NewServerPool(backendServers, config.Weights)
-	// Start the load balancer
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// Register the load balancer handler for all paths
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serverPool.LoadBalancer(w, r, "roundrobin")
 	})
 
 	log.Printf("LoadBalancer started at :%s", config.ListentPort)
-	if err := http.ListenAndServe(":"+config.ListentPort, nil); err != nil {
+	if err := http.ListenAndServe(":"+config.ListentPort, mux); err != nil {
 		log.Fatalf("Could not start load balancer :%s\n", err)
 	}
 }
