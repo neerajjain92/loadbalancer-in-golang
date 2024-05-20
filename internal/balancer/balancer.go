@@ -1,8 +1,12 @@
 package balancer
 
 import (
+	"bufio"
 	"encoding/json"
+	"io"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -57,8 +61,52 @@ func (s *ServerPool) LoadBalancer(w http.ResponseWriter, r *http.Request, algori
 	}
 
 	if backend != nil && backend.Alive {
-		backend.Server.Handler.ServeHTTP(w, r)
+		// Establish a TCP connection with the backend server
+		backendConn, err := net.Dial("tcp", backend.URL.Host)
+		if err != nil {
+			http.Error(w, "Failed to connect to backend server", http.StatusServiceUnavailable)
+			return
+		}
+
+		// Create a bidirectional copy between the client and the backend server
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Send the request to the backend Server in HTTP Format
+		go func() {
+			defer wg.Done()
+			err := r.Write(backendConn)
+			if err != nil {
+				log.Printf("Error sending request to backend server: %v", err)
+			}
+		}()
+
+		// Read response from the backend server and write to the client
+		go func() {
+			defer wg.Done()
+			resp, err := http.ReadResponse(bufio.NewReader(backendConn), r)
+			if err != nil {
+				log.Printf("Error reading response from backend server: %v", err)
+				http.Error(w, "Error reading response from backend server", http.StatusInternalServerError)
+				return
+			}
+			defer resp.Body.Close()
+			copyHeader(w.Header(), resp.Header)
+			w.WriteHeader(resp.StatusCode)
+			io.Copy(w, resp.Body)
+			backendConn.Close() // Close the backend connection after the response is read
+		}()
+
+		wg.Wait()
 	} else {
-		http.Error(w, "Service Not available", http.StatusServiceUnavailable)
+		http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	}
+}
+
+func copyHeader(dst, src http.Header) {
+	for k, vals := range src {
+		for _, val := range vals {
+			dst.Add(k, val)
+		}
 	}
 }

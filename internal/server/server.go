@@ -20,11 +20,12 @@ func NewServer(serverURL string) *Server {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received request on Server %v, Method: %s, URL: %s\n", serverURL, r.Method, r.URL.Path)
 		fmt.Fprintf(w, "Hello from server %s!", url.Host)
 	})
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Received HealthCheck on Server %v \n", serverURL)
+		// log.Printf("Received HealthCheck on Server %v \n", serverURL)
 		w.WriteHeader(http.StatusOK)
 	})
 
