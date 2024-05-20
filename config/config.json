@@ -1,0 +1,10 @@
+{
+    "healthCheckInterval": "5s",
+    "servers": [
+        "http://localhost:7070",
+        "http://localhost:7071",
+        "http://localhost:7072"
+    ],
+    "weights": [5,3,2],
+    "listenPort": "9095"
+}
